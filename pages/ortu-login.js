@@ -1,5 +1,5 @@
 // pages/ortu-login.js
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
 export default function OrtuLogin() {
@@ -7,7 +7,24 @@ export default function OrtuLogin() {
   const [dob, setDob] = useState('')
   const [message, setMessage] = useState('')
   const [siswa, setSiswa] = useState(null)
+  const [tahunList, setTahunList] = useState([])
+  const [semesterList, setSemesterList] = useState([])
+  const [selectedTahun, setSelectedTahun] = useState('')
+  const [selectedSemester, setSelectedSemester] = useState('')
 
+  // Ambil daftar tahun ajaran dan semester dari database
+  useEffect(() => {
+    const fetchData = async () => {
+      const { data: tahunData } = await supabase.from('tahun_ajaran').select('*').order('id', { ascending: false })
+      setTahunList(tahunData || [])
+
+      const { data: semesterData } = await supabase.from('semester').select('*')
+      setSemesterList(semesterData || [])
+    }
+    fetchData()
+  }, [])
+
+  // Cari data siswa berdasarkan NISN & tanggal lahir
   const handleSearch = async (e) => {
     e.preventDefault()
     setMessage('Mencari data...')
@@ -21,11 +38,25 @@ export default function OrtuLogin() {
       .single()
 
     if (error || !data) {
-      setMessage('Data tidak ditemukan. Periksa NISN dan tanggal lahir.')
+      setMessage('❌ Data tidak ditemukan. Periksa NISN dan tanggal lahir.')
     } else {
       setSiswa(data)
       setMessage('')
     }
+  }
+
+  // Simulasi buka raport (sementara)
+  const handlePreview = async () => {
+    if (!selectedTahun || !selectedSemester) {
+      alert('Pilih tahun ajaran dan semester terlebih dahulu!')
+      return
+    }
+
+    alert(
+      `Menampilkan raport untuk:\n\nNama: ${siswa.nama}\nKelas: ${siswa.kelas}\nTahun Ajaran: ${selectedTahun}\nSemester: ${selectedSemester}`
+    )
+
+    // nanti dihubungkan ke halaman /preview sesuai data
   }
 
   return (
@@ -37,10 +68,10 @@ export default function OrtuLogin() {
           <input value={nisn} onChange={(e) => setNisn(e.target.value)} required />
         </div>
         <div>
-          <label>Tanggal Lahir (format: YYYY-MM-DD):</label><br />
+          <label>Tanggal Lahir (YYYY-MM-DD):</label><br />
           <input value={dob} onChange={(e) => setDob(e.target.value)} required />
         </div>
-        <button type="submit">Lihat Raport</button>
+        <button type="submit">Cari Siswa</button>
       </form>
 
       {message && <p>{message}</p>}
@@ -50,8 +81,28 @@ export default function OrtuLogin() {
           <h3>Data Siswa</h3>
           <p><strong>Nama:</strong> {siswa.nama}</p>
           <p><strong>Kelas:</strong> {siswa.kelas}</p>
-          <p><strong>Tahun Ajaran:</strong> {siswa.tahun_ajaran}</p>
-          <a href="/preview" style={{ color: 'blue' }}>Lihat / Unduh Raport</a>
+
+          <div style={{ marginTop: 10 }}>
+            <label><strong>Tahun Ajaran:</strong></label><br />
+            <select value={selectedTahun} onChange={(e) => setSelectedTahun(e.target.value)}>
+              <option value="">-- Pilih Tahun Ajaran --</option>
+              {tahunList.map((t) => (
+                <option key={t.id} value={t.label}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ marginTop: 10 }}>
+            <label><strong>Semester:</strong></label><br />
+            <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)}>
+              <option value="">-- Pilih Semester --</option>
+              {semesterList.map((s) => (
+                <option key={s.id} value={s.nama}>{s.nama}</option>
+              ))}
+            </select>
+          </div>
+
+          <button style={{ marginTop: 10 }} onClick={handlePreview}>Lihat Raport</button>
         </div>
       )}
     </main>
