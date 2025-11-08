@@ -1,30 +1,84 @@
-import { useRouter } from 'next/router'
+// pages/login.js
 import { useState } from 'react'
-// Dummy login for starter: use email 'admin@paud.test' or 'ecih@paud.test' with password 'password123'
-export default function Login(){
-  const [email,setEmail]=useState('')
-  const [pw,setPw]=useState('')
+import { useRouter } from 'next/router'
+import { supabase } from '../lib/supabaseClient'
+
+export default function Login() {
   const router = useRouter()
-  const handle = (e)=>{
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const handleLogin = async (e) => {
     e.preventDefault()
-    if ((email==='admin@paud.test' || email==='ecih@paud.test' || email==='novita@paud.test') && pw==='password123'){
-      // store role in localStorage for demo
-      if(email==='admin@paud.test') localStorage.setItem('role','admin')
-      else localStorage.setItem('role','guru')
-      router.push('/dashboard')
-    } else {
-      alert('Login demo gagal. Gunakan akun demo: admin@paud.test / password123')
+    setLoading(true)
+    setError(null)
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      setError('Email atau password salah.')
+      setLoading(false)
+      return
     }
+
+    // ambil profile user dari tabel profiles
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, kelas')
+      .eq('id', data.user.id)
+      .single()
+
+    if (profile) {
+      localStorage.setItem('role', profile.role)
+      localStorage.setItem('kelas', profile.kelas || '')
+      if (profile.role === 'admin') router.push('/dashboard')
+      else if (profile.role === 'guru') router.push('/dashboard')
+      else router.push('/')
+    } else {
+      setError('Profil pengguna tidak ditemukan.')
+    }
+    setLoading(false)
   }
+
   return (
-    <main style={{padding:20,fontFamily:'sans-serif'}}>
-      <h2>Login (Demo)</h2>
-      <form onSubmit={handle}>
-        <div><input placeholder="email" value={email} onChange={e=>setEmail(e.target.value)} /></div>
-        <div><input placeholder="password" type="password" value={pw} onChange={e=>setPw(e.target.value)} /></div>
-        <button type="submit">Login</button>
+    <main style={{ padding: 20, fontFamily: 'sans-serif' }}>
+      <h2>Login Guru / Admin</h2>
+      <form onSubmit={handleLogin}>
+        <div>
+          <label>Email:</label><br />
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="email"
+            required
+          />
+        </div>
+        <div>
+          <label>Password:</label><br />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="password"
+            required
+          />
+        </div>
+        <button type="submit" disabled={loading}>
+          {loading ? 'Masuk...' : 'Login'}
+        </button>
       </form>
-      <p>Demo accounts: admin@paud.test (admin), ecih@paud.test (guru A), novita@paud.test (guru B). Password: password123</p>
+
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+
+      <hr />
+      <p>👨‍👩‍👧 Untuk Orang Tua, klik di bawah ini:</p>
+      <a href="/ortu-login">➡️ Login Orang Tua (pakai NISN & Tanggal Lahir)</a>
     </main>
   )
 }
